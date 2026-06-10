@@ -136,10 +136,11 @@
 
 <footer>
   Guidelines from <a href="https://khsaa.org/forms/ge20.pdf" style="color:inherit">KHSAA Form GE20</a> (Rev. 06/23).
-  Temperature, humidity, and wind come from the Breckinridge County Airport weather
-  station in Hardinsburg (KI93, ~5 mi from Harned), updated every 10–20 minutes; solar
-  radiation and the hourly forecast come from the Open-Meteo model, which is also the
-  fallback if the station is offline. WBGT is estimated from those readings —
+  Temperature, humidity, and wind are read live from the Breckinridge County Airport
+  weather station in Hardinsburg (KI93, ~5 mi from Harned) on every refresh; the station
+  reports a new observation about every 20 minutes. Solar radiation and the hourly
+  forecast come from the Open-Meteo model, which is also the fallback if the station is
+  offline. WBGT is estimated from those readings —
   an estimate is not a substitute for an on-field WBGT meter —
   when in doubt, err on the side of caution. Auto-refreshes every 10 minutes; tap anywhere to refresh now.
 </footer>
@@ -150,10 +151,10 @@ const API = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${
   + `&current=temperature_2m,relative_humidity_2m,wind_speed_10m,shortwave_radiation`
   + `&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m,shortwave_radiation`
   + `&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=America%2FChicago&forecast_days=1`;
-// KI93 = Breckinridge County Airport (Hardinsburg), ~5 mi from Harned.
-// Updated every 10 min by a GitHub Action; cache-busted because raw CDN caches ~5 min.
-const METAR_URL = "https://raw.githubusercontent.com/beetee2/bc-wbgt/data/metar.json";
-const METAR_MAX_AGE_MIN = 75; // fall back to model data if the station obs is older
+// I93 = Breckinridge County Airport (Hardinsburg), ~5 mi from Harned, fetched
+// live on every refresh from the Iowa Environmental Mesonet (CORS-enabled).
+const STATION_URL = "https://mesonet.agron.iastate.edu/api/1/currents.json?station=I93&network=KY_ASOS";
+const STATION_MAX_AGE_MIN = 75; // fall back to model data if the station obs is older
 
 // KHSAA Form GE20 (Rev. 06/23) WBGT activity scale, °F — football-specific notes included
 const CATS = [
@@ -195,25 +196,19 @@ function category(w) {
   return CATS.find(c => w < c.max);
 }
 
-// Relative humidity from temp + dewpoint (°C), Magnus formula
-function rhFromDewpoint(T, Td) {
-  const es = t => 6.112 * Math.exp(17.67 * t / (t + 243.5));
-  return Math.min(100, Math.round(100 * es(Td) / es(T)));
-}
-
-// Latest KI93 station obs, or null if unavailable/stale
+// Latest Hardinsburg station obs, or null if unavailable/stale
 async function fetchStation() {
   try {
-    const r = await fetch(METAR_URL + "?t=" + Date.now());
-    const m = (await r.json())[0];
-    const ageMin = (Date.now() / 1000 - m.obsTime) / 60;
-    if (ageMin > METAR_MAX_AGE_MIN || m.temp == null) return null;
+    const r = await fetch(STATION_URL + "&t=" + Date.now());
+    const m = (await r.json()).data[0];
+    const obsTime = new Date(m.utc_valid);
+    if ((Date.now() - obsTime) / 60000 > STATION_MAX_AGE_MIN || m.tmpf == null) return null;
     return {
-      tempF: c2f(m.temp),
-      rh: m.dewp == null ? null : rhFromDewpoint(m.temp, m.dewp),
-      windMph: m.wspd == null ? null : m.wspd * 1.15078,
-      gustMph: m.wgst == null ? null : m.wgst * 1.15078,
-      obsTime: new Date(m.obsTime * 1000),
+      tempF: m.tmpf,
+      rh: m.relh,
+      windMph: m.sknt == null ? null : m.sknt * 1.15078,
+      gustMph: m.gust == null ? null : m.gust * 1.15078,
+      obsTime,
     };
   } catch (e) {
     return null;
