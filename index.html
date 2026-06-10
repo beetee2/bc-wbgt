@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WBGT — Harned, KY</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #111;
+    color: #fff;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  #hero {
+    text-align: center;
+    padding: 32px 16px 24px;
+    transition: background 0.5s;
+  }
+  #hero h1 { font-size: 1.1rem; font-weight: 600; opacity: 0.9; }
+  #wbgt {
+    font-size: 6.5rem;
+    font-weight: 800;
+    line-height: 1.1;
+  }
+  #category {
+    font-size: 1.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  #guideline {
+    font-size: 1.05rem;
+    margin: 10px auto 0;
+    max-width: 480px;
+    line-height: 1.4;
+  }
+  #updated { font-size: 0.85rem; opacity: 0.8; margin-top: 14px; }
+  #conditions {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 16px;
+  }
+  .cond {
+    background: #222;
+    border-radius: 10px;
+    padding: 10px 14px;
+    text-align: center;
+    min-width: 76px;
+  }
+  .cond .v { font-size: 1.2rem; font-weight: 700; }
+  .cond .l { font-size: 0.72rem; opacity: 0.65; text-transform: uppercase; }
+  h2 {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    opacity: 0.6;
+    padding: 8px 16px 4px;
+  }
+  #hourly {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 8px 16px 16px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .hour {
+    flex: 0 0 auto;
+    border-radius: 10px;
+    padding: 10px 12px;
+    text-align: center;
+    color: #fff;
+    min-width: 64px;
+  }
+  .hour .t { font-size: 0.75rem; opacity: 0.9; }
+  .hour .w { font-size: 1.15rem; font-weight: 700; }
+  #legend { padding: 8px 16px 4px; max-width: 560px; }
+  .leg {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 0;
+    font-size: 0.88rem;
+    line-height: 1.3;
+  }
+  .swatch {
+    flex: 0 0 auto;
+    width: 44px;
+    height: 24px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-weight: 700;
+  }
+  footer {
+    padding: 16px;
+    font-size: 0.75rem;
+    opacity: 0.5;
+    max-width: 560px;
+    line-height: 1.4;
+  }
+  #error {
+    display: none;
+    background: #7a1f1f;
+    padding: 12px 16px;
+    text-align: center;
+    font-size: 0.9rem;
+  }
+</style>
+</head>
+<body>
+
+<div id="error">Couldn't load weather data. Check your connection, then tap anywhere to retry.</div>
+
+<div id="hero">
+  <h1>Wet Bulb Globe Temp — Harned, KY</h1>
+  <div id="wbgt">--</div>
+  <div id="category">Loading…</div>
+  <div id="guideline"></div>
+  <div id="updated"></div>
+</div>
+
+<div id="conditions"></div>
+
+<h2>Rest of Today</h2>
+<div id="hourly"></div>
+
+<h2>Practice Guidelines</h2>
+<div id="legend"></div>
+
+<footer>
+  WBGT estimated from live weather data (Open-Meteo) using air temperature, humidity,
+  wind, and solar radiation. An estimate is not a substitute for an on-field WBGT meter —
+  when in doubt, err on the side of caution. Auto-refreshes every 10 minutes; tap anywhere to refresh now.
+</footer>
+
+<script>
+const LAT = 37.7395, LON = -86.4133;
+const API = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}`
+  + `&current=temperature_2m,relative_humidity_2m,wind_speed_10m,shortwave_radiation`
+  + `&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m,shortwave_radiation`
+  + `&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=America%2FChicago&forecast_days=1`;
+
+// Activity categories (KSI/NATA regional table, Category 2 — Kentucky), WBGT in °F
+const CATS = [
+  { max: 82.1, color: "#1e8a3c", name: "Green — Normal",
+    text: "Normal activity. Provide at least 3 separate rest/water breaks per hour (3 min or longer)." },
+  { max: 87.0, color: "#b5a000", name: "Yellow — Caution",
+    text: "Use discretion for intense or prolonged exercise. At least 3 separate rest/water breaks per hour (4 min or longer). Watch at-risk players." },
+  { max: 90.0, color: "#c46a00", name: "Orange — High",
+    text: "Max 2 hours of practice. Football: helmets and shoulder pads only. At least 4 rest/water breaks per hour (4 min or longer)." },
+  { max: 92.1, color: "#b62020", name: "Red — Very High",
+    text: "Max 1 hour of practice. No protective equipment, no conditioning. 20 total minutes of rest breaks distributed through the hour." },
+  { max: Infinity, color: "#000", name: "Black — Extreme",
+    text: "No outdoor workouts. Cancel or move practice indoors / delay until WBGT drops." },
+];
+
+const f2c = f => (f - 32) * 5 / 9;
+const c2f = c => c * 9 / 5 + 32;
+
+// Stull (2011) psychrometric wet-bulb approximation. T in °C, rh in %
+function wetBulb(T, rh) {
+  return T * Math.atan(0.151977 * Math.sqrt(rh + 8.313659))
+    + Math.atan(T + rh) - Math.atan(rh - 1.676331)
+    + 0.00391838 * Math.pow(rh, 1.5) * Math.atan(0.023101 * rh)
+    - 4.686035;
+}
+
+// Hunter & Minyard (1999) globe temperature regression. S in W/m², T in °C, rh in %
+function globeTemp(T, rh, S) {
+  return 0.009624 * S + 1.102 * T - 0.00404 * rh - 2.2776;
+}
+
+// Outdoor WBGT, inputs in °F / % / W/m², result in °F
+function wbgtF(tempF, rh, solar) {
+  const T = f2c(tempF);
+  const twb = wetBulb(T, rh);
+  const tg = Math.max(globeTemp(T, rh, solar), T); // globe never cooler than air
+  return c2f(0.7 * twb + 0.2 * tg + 0.1 * T);
+}
+
+function category(w) {
+  return CATS.find(c => w < c.max);
+}
+
+function fmtHour(iso) {
+  const h = new Date(iso).getHours();
+  const ampm = h >= 12 ? "PM" : "AM";
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return h12 + " " + ampm;
+}
+
+async function load() {
+  document.getElementById("error").style.display = "none";
+  try {
+    const r = await fetch(API);
+    const d = await r.json();
+    const c = d.current;
+
+    const w = wbgtF(c.temperature_2m, c.relative_humidity_2m, c.shortwave_radiation);
+    const cat = category(w);
+
+    document.getElementById("hero").style.background = cat.color;
+    document.getElementById("wbgt").textContent = w.toFixed(1) + "°";
+    document.getElementById("category").textContent = cat.name;
+    document.getElementById("guideline").textContent = cat.text;
+    document.getElementById("updated").textContent =
+      "Updated " + new Date(c.time).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+
+    document.getElementById("conditions").innerHTML = [
+      [Math.round(c.temperature_2m) + "°F", "Air Temp"],
+      [c.relative_humidity_2m + "%", "Humidity"],
+      [Math.round(c.wind_speed_10m) + " mph", "Wind"],
+      [Math.round(c.shortwave_radiation) + " W/m²", "Sun"],
+    ].map(([v, l]) => `<div class="cond"><div class="v">${v}</div><div class="l">${l}</div></div>`).join("");
+
+    const h = d.hourly;
+    const now = new Date(c.time);
+    let html = "";
+    for (let i = 0; i < h.time.length; i++) {
+      if (new Date(h.time[i]) < now) continue;
+      const hw = wbgtF(h.temperature_2m[i], h.relative_humidity_2m[i], h.shortwave_radiation[i]);
+      const hc = category(hw);
+      html += `<div class="hour" style="background:${hc.color}">
+        <div class="t">${fmtHour(h.time[i])}</div>
+        <div class="w">${hw.toFixed(0)}°</div>
+      </div>`;
+    }
+    document.getElementById("hourly").innerHTML = html || "<div style='opacity:.5;font-size:.85rem'>No more hours today.</div>";
+  } catch (e) {
+    document.getElementById("error").style.display = "block";
+  }
+}
+
+document.getElementById("legend").innerHTML = CATS.map((c, i) => {
+  const lo = i === 0 ? "< " + c.max.toFixed(1)
+    : c.max === Infinity ? CATS[i - 1].max.toFixed(1) + "+"
+    : CATS[i - 1].max.toFixed(1) + "–" + (c.max - 0.1).toFixed(1);
+  return `<div class="leg"><div class="swatch" style="background:${c.color}">${lo}</div><div><b>${c.name.split("—")[0].trim()}:</b> ${c.text}</div></div>`;
+}).join("");
+
+document.body.addEventListener("click", load);
+setInterval(load, 10 * 60 * 1000);
+load();
+</script>
+</body>
+</html>
