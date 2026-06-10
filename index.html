@@ -199,7 +199,8 @@ function category(w) {
 // Latest Hardinsburg station obs, or null if unavailable/stale
 async function fetchStation() {
   try {
-    const r = await fetch(STATION_URL + "&t=" + Date.now());
+    // no cache-bust param: IEM's API 422s on unknown query params
+    const r = await fetch(STATION_URL, { cache: "no-store" });
     const m = (await r.json()).data[0];
     const obsTime = new Date(m.utc_valid);
     if ((Date.now() - obsTime) / 60000 > STATION_MAX_AGE_MIN || m.tmpf == null) return null;
