@@ -130,10 +130,11 @@
 <h2>Rest of Today</h2>
 <div id="hourly"></div>
 
-<h2>Practice Guidelines</h2>
+<h2>KHSAA Practice Guidelines (Form GE20)</h2>
 <div id="legend"></div>
 
 <footer>
+  Guidelines from <a href="https://khsaa.org/forms/ge20.pdf" style="color:inherit">KHSAA Form GE20</a> (Rev. 06/23).
   WBGT estimated from live weather data (Open-Meteo) using air temperature, humidity,
   wind, and solar radiation. An estimate is not a substitute for an on-field WBGT meter —
   when in doubt, err on the side of caution. Auto-refreshes every 10 minutes; tap anywhere to refresh now.
@@ -146,18 +147,16 @@ const API = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${
   + `&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m,shortwave_radiation`
   + `&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=America%2FChicago&forecast_days=1`;
 
-// Activity categories (KSI/NATA regional table, Category 2 — Kentucky), WBGT in °F
+// KHSAA Form GE20 (Rev. 06/23) WBGT activity scale, °F — football-specific notes included
 const CATS = [
-  { max: 82.1, color: "#1e8a3c", name: "Green — Normal",
-    text: "Normal activity. Provide at least 3 separate rest/water breaks per hour (3 min or longer)." },
-  { max: 87.0, color: "#b5a000", name: "Yellow — Caution",
-    text: "Use discretion for intense or prolonged exercise. At least 3 separate rest/water breaks per hour (4 min or longer). Watch at-risk players." },
-  { max: 90.0, color: "#c46a00", name: "Orange — High",
-    text: "Max 2 hours of practice. Football: helmets and shoulder pads only. At least 4 rest/water breaks per hour (4 min or longer)." },
-  { max: 92.1, color: "#b62020", name: "Red — Very High",
-    text: "Max 1 hour of practice. No protective equipment, no conditioning. 20 total minutes of rest breaks distributed through the hour." },
-  { max: Infinity, color: "#000", name: "Black — Extreme",
-    text: "No outdoor workouts. Cancel or move practice indoors / delay until WBGT drops." },
+  { max: 87.0, color: "#1e8a3c", name: "Green — Practice Allowed",
+    text: "Water always available. Optional 10-min water breaks every 30 min. Multiple rest breaks (4+ min) each hour. Ice towels and cooling tub ready. Recheck every 30 min if temperature rises." },
+  { max: 90.0, color: "#c46a00", name: "Orange — Restricted",
+    text: "Max 2 hours total activity. Mandatory 10-min water breaks every 30 min, out of direct sun. Football: helmets/equipment off when not directly involved; no equipment for conditioning; consider moving practice later in the day." },
+  { max: 92.0, color: "#b62020", name: "Red — Severe",
+    text: "Max 1 hour total activity with at least 20 min of breaks in that hour. Football: if helmets/protective equipment are required, suspend practice until WBGT drops below 90. No equipment, no conditioning. Recheck every 15 min." },
+  { max: Infinity, color: "#000", name: "Black — Stop",
+    text: "Stop all outside activity, practice and play. Stop inside activity too unless air conditioning is available." },
 ];
 
 const f2c = f => (f - 32) * 5 / 9;
